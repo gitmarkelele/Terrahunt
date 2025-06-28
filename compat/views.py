@@ -1,0 +1,70 @@
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+
+from compat.services.get_requests import get_client_demandes
+from .models import ProfilCandidat, Demande, Correspondance
+from .serializers import RegisterSerializer
+from django.http import JsonResponse
+
+
+# Mock function to replace AI service temporarily
+def mock_evaluer_compatibilite(profil, demande):
+    """Mock function that returns a simple score"""
+    return "Score: 7.5/10 - Compatibilité élevée basée sur les compétences"
+
+class EvaluerCompatibilite(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profil_id = request.data.get("profil_id")
+        demande_id = request.data.get("demande_id")
+
+        try:
+            profil = ProfilCandidat.objects.get(id=profil_id)
+            demande = Demande.objects.get(id=demande_id)
+
+            score = mock_evaluer_compatibilite(str(profil), str(demande))
+            
+            # Extract numeric score for database storage
+            score_numeric = 7.5  # Mock score
+            
+            Correspondance.objects.create(
+                profil=profil,
+                demande=demande,
+                score_compatibilite=score_numeric
+            )
+
+            return Response({"score": score})
+        except ProfilCandidat.DoesNotExist:
+            return Response({"error": "Profil not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Demande.DoesNotExist:
+            return Response({"error": "Demande not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RegisterAPIView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response({"message": "Utilisateur créé avec succès."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+def fetch_demandes_view(request):
+    auth_header = request.headers.get('Authorization')
+
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return JsonResponse({'error': 'Missing or invalid token'}, status=401)
+
+    jwt_token = auth_header.split(' ')[1]
+
+    demandes = get_client_demandes(jwt_token)
+
+    if demandes is not None:
+        return JsonResponse(demandes, safe=False)
+    else:
+        return JsonResponse({'error': 'Failed to fetch demandes'}, status=500)
