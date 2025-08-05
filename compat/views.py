@@ -14,7 +14,7 @@ from django.http import JsonResponse
 # Mock function to replace AI service temporarily
 def mock_evaluer_compatibilite(profil, demande):
     """Mock function that returns a simple score"""
-    return "Score: 7.5/10 - Compatibilité élevée basée sur les compétences"
+    return "Score: 80% compatible. Justification: Profil et demande correspondent sur les compétences clés et l'expérience requise."
 
 class EvaluerCompatibilite(APIView):
     permission_classes = [IsAuthenticated]
